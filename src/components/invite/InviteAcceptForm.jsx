@@ -1,9 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { acceptInvite, getInviteByToken } from "../../services/inviteService";
 
 function InviteAcceptForm() {
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get("token") || "", [searchParams]);
+
+  const [invite, setInvite] = useState(null);
+  const [loadingInvite, setLoadingInvite] = useState(true);
 
   const [form, setForm] = useState({
     nickname: "",
@@ -11,7 +15,60 @@ function InviteAcceptForm() {
     confirmPassword: "",
   });
 
+  const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadInvite() {
+      if (!token) {
+        setStatus({ type: "error", message: "Nedostaje invite token." });
+        setLoadingInvite(false);
+        return;
+      }
+
+      try {
+        const data = await getInviteByToken(token);
+
+        if (!mounted) return;
+
+        setInvite(data);
+        setForm((prev) => ({
+          ...prev,
+          nickname: data.full_name || "",
+        }));
+
+        if (data.accepted_at) {
+          setStatus({
+            type: "error",
+            message: "Ova pozivnica je već prihvaćena.",
+          });
+        } else if (data.expires_at && new Date(data.expires_at) < new Date()) {
+          setStatus({
+            type: "error",
+            message: "Ova pozivnica je istekla.",
+          });
+        }
+      } catch (error) {
+        if (!mounted) return;
+        setStatus({
+          type: "error",
+          message: error.message || "Pozivnica nije pronađena.",
+        });
+      } finally {
+        if (mounted) {
+          setLoadingInvite(false);
+        }
+      }
+    }
+
+    loadInvite();
+
+    return () => {
+      mounted = false;
+    };
+  }, [token]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -27,8 +84,31 @@ function InviteAcceptForm() {
       return;
     }
 
+    if (!invite) {
+      setStatus({ type: "error", message: "Pozivnica nije učitana." });
+      return;
+    }
+
+    if (invite.accepted_at) {
+      setStatus({ type: "error", message: "Ova pozivnica je već prihvaćena." });
+      return;
+    }
+
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      setStatus({ type: "error", message: "Ova pozivnica je istekla." });
+      return;
+    }
+
+    if (!form.nickname.trim()) {
+      setStatus({ type: "error", message: "Unesite ime ili nickname." });
+      return;
+    }
+
     if (!form.password || form.password.length < 6) {
-      setStatus({ type: "error", message: "Lozinka mora imati najmanje 6 karaktera." });
+      setStatus({
+        type: "error",
+        message: "Lozinka mora imati najmanje 6 karaktera.",
+      });
       return;
     }
 
@@ -37,25 +117,52 @@ function InviteAcceptForm() {
       return;
     }
 
+    setSubmitting(true);
+
     try {
-      // ovdje kasnije ide stvarni poziv ka Supabase / edge function
-      console.log("Accept invite", { token, ...form });
+      await acceptInvite({
+        token,
+        nickname: form.nickname.trim(),
+        password: form.password,
+      });
 
       setStatus({
         type: "success",
-        message: "Račun je aktiviran. Sada se možete prijaviti u aplikaciju.",
+        message:
+          "Račun je aktiviran. Sada se možete prijaviti u aplikaciju.",
       });
-    } catch {
-      setStatus({ type: "error", message: "Greška pri aktivaciji računa." });
+    } catch (error) {
+      setStatus({
+        type: "error",
+        message: error.message || "Greška pri aktivaciji računa.",
+      });
+    } finally {
+      setSubmitting(false);
     }
   }
 
+  if (loadingInvite) {
+    return (
+      <div className="card">
+        <p>Učitavanje pozivnice...</p>
+      </div>
+    );
+  }
+
+  const blocked =
+    !invite ||
+    !!invite.accepted_at ||
+    (invite.expires_at && new Date(invite.expires_at) < new Date());
+
   return (
     <form className="form card" onSubmit={handleSubmit}>
-      <div className="card soft">
-        <strong>Invite token:</strong>
-        <div>{token || "Nije pronađen"}</div>
-      </div>
+      {invite && (
+        <div className="card soft">
+          <div><strong>Servis:</strong> {invite.business_name}</div>
+          <div><strong>Email:</strong> {invite.email}</div>
+          <div><strong>Uloga:</strong> {invite.role}</div>
+        </div>
+      )}
 
       <label>
         Nickname ili ime
@@ -65,6 +172,7 @@ function InviteAcceptForm() {
           value={form.nickname}
           onChange={handleChange}
           required
+          disabled={blocked || submitting}
         />
       </label>
 
@@ -76,6 +184,7 @@ function InviteAcceptForm() {
           value={form.password}
           onChange={handleChange}
           required
+          disabled={blocked || submitting}
         />
       </label>
 
@@ -87,6 +196,7 @@ function InviteAcceptForm() {
           value={form.confirmPassword}
           onChange={handleChange}
           required
+          disabled={blocked || submitting}
         />
       </label>
 
@@ -94,9 +204,15 @@ function InviteAcceptForm() {
         <div className={`alert alert--${status.type}`}>{status.message}</div>
       )}
 
-      <button className="btn btn--primary" type="submit">
-        Aktiviraj pristup
-      </button>
+      {!blocked && (
+        <button
+          className="btn btn--primary"
+          type="submit"
+          disabled={submitting}
+        >
+          {submitting ? "Aktivacija..." : "Aktiviraj pristup"}
+        </button>
+      )}
     </form>
   );
 }

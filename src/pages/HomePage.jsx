@@ -15,9 +15,9 @@ function HomePage() {
             <Link to="/order" className="btn btn--primary">
               Pošalji zahtjev
             </Link>
-            <Link to="/invite" className="btn btn--secondary">
+            {/* <Link to="/invite" className="btn btn--secondary">
               Prijava radnika
-            </Link>
+            </Link> */}
           </div>
         </div>
       </section>

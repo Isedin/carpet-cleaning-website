@@ -12,9 +12,9 @@ function Navbar() {
           <Link to="/order" className="nav__link">
             Narudžba
           </Link>
-          <Link to="/invite" className="nav__link">
+          {/* <Link to="/invite" className="nav__link">
             Prijava radnika
-          </Link>
+          </Link> */}
         </nav>
       </div>
     </header>

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createOrder } from "../../services/orderService";
+import { fetchBusinesses } from "../../services/businessService";
 
 const initialState = {
   businessId: "",
@@ -7,7 +8,6 @@ const initialState = {
   customerPhone: "",
   customerAddress: "",
   carpetCount: "",
-  serviceMode: "pickup_delivery",
   preferredTimeSlot: "08_12",
   note: "",
 };
@@ -16,6 +16,35 @@ function OrderForm() {
   const [form, setForm] = useState(initialState);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [loading, setLoading] = useState(false);
+
+  const [businesses, setBusinesses] = useState([]);
+  const [loadingBusinesses, setLoadingBusinesses] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadBusinesses() {
+      try {
+        const data = await fetchBusinesses();
+        if (!mounted) return;
+        setBusinesses(data);
+      } catch (error) {
+        if (!mounted) return;
+        setStatus({
+          type: "error",
+          message: error.message || "Greška pri učitavanju servisa.",
+        });
+      } finally {
+        if (mounted) setLoadingBusinesses(false);
+      }
+    }
+
+    loadBusinesses();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -63,10 +92,16 @@ function OrderForm() {
           value={form.businessId}
           onChange={handleChange}
           required
+          disabled={loadingBusinesses}
         >
-          <option value="">Odaberite servis</option>
-          <option value="11111111-1111-1111-1111-111111111111">Mošus</option>
-          <option value="22222222-2222-2222-2222-222222222222">Tip Top</option>
+          <option value="">
+            {loadingBusinesses ? "Učitavanje servisa..." : "Odaberite servis"}
+          </option>
+          {businesses.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
         </select>
       </label>
 
@@ -114,18 +149,6 @@ function OrderForm() {
       </label>
 
       <label>
-        Način usluge
-        <select
-          name="serviceMode"
-          value={form.serviceMode}
-          onChange={handleChange}
-        >
-          <option value="pickup_delivery">Preuzimanje i dostava</option>
-          <option value="drop_off">Klijent donosi tepih</option>
-        </select>
-      </label>
-
-      <label>
         Vremenski interval
         <select
           name="preferredTimeSlot"
@@ -144,6 +167,7 @@ function OrderForm() {
           rows="4"
           value={form.note}
           onChange={handleChange}
+          placeholder="npr. Nemojte previše mirisati tepihe, vuna - obratite pažnju..."
         />
       </label>
 
@@ -151,7 +175,7 @@ function OrderForm() {
         <div className={`alert alert--${status.type}`}>{status.message}</div>
       )}
 
-      <button className="btn btn--primary" type="submit" disabled={loading}>
+      <button className="btn btn--primary" type="submit" disabled={loading || loadingBusinesses}>
         {loading ? "Slanje..." : "Pošalji zahtjev"}
       </button>
     </form>
