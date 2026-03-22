@@ -68,8 +68,7 @@ function OrderForm() {
         customer_name: form.customerName,
         customer_phone: form.customerPhone,
         customer_address: form.customerAddress,
-        carpet_count: form.carpetCount ? Number(form.carpetCount) : null,
-        service_mode: form.serviceMode,
+        carpet_count: form.carpetCount ? Number(form.carpetCount) : 0,
         preferred_time_slot: form.preferredTimeSlot,
         note: form.note,
       });
