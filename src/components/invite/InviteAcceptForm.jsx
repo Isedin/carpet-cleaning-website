@@ -57,9 +57,7 @@ function InviteAcceptForm() {
           message: error.message || "Pozivnica nije pronađena.",
         });
       } finally {
-        if (mounted) {
-          setLoadingInvite(false);
-        }
+        if (mounted) setLoadingInvite(false);
       }
     }
 
@@ -79,23 +77,8 @@ function InviteAcceptForm() {
     e.preventDefault();
     setStatus({ type: "", message: "" });
 
-    if (!token) {
-      setStatus({ type: "error", message: "Nedostaje invite token." });
-      return;
-    }
-
     if (!invite) {
       setStatus({ type: "error", message: "Pozivnica nije učitana." });
-      return;
-    }
-
-    if (invite.accepted_at) {
-      setStatus({ type: "error", message: "Ova pozivnica je već prihvaćena." });
-      return;
-    }
-
-    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-      setStatus({ type: "error", message: "Ova pozivnica je istekla." });
       return;
     }
 
@@ -128,8 +111,7 @@ function InviteAcceptForm() {
 
       setStatus({
         type: "success",
-        message:
-          "Račun je aktiviran. Sada se možete prijaviti u aplikaciju.",
+        message: "Račun je aktiviran. Sada se možete prijaviti u aplikaciju.",
       });
     } catch (error) {
       setStatus({
@@ -149,20 +131,25 @@ function InviteAcceptForm() {
     );
   }
 
+  if (!invite) {
+    return (
+      <div className="alert alert--error">
+        {status.message || "Pozivnica nije pronađena."}
+      </div>
+    );
+  }
+
   const blocked =
-    !invite ||
     !!invite.accepted_at ||
     (invite.expires_at && new Date(invite.expires_at) < new Date());
 
   return (
     <form className="form card" onSubmit={handleSubmit}>
-      {invite && (
-        <div className="card soft">
-          <div><strong>Servis:</strong> {invite.business_name}</div>
-          <div><strong>Email:</strong> {invite.email}</div>
-          <div><strong>Uloga:</strong> {invite.role}</div>
-        </div>
-      )}
+      <div className="card soft">
+        <div><strong>Servis:</strong> {invite.business_name}</div>
+        <div><strong>Email:</strong> {invite.email}</div>
+        <div><strong>Uloga:</strong> {invite.role}</div>
+      </div>
 
       <label>
         Nickname ili ime
@@ -205,11 +192,7 @@ function InviteAcceptForm() {
       )}
 
       {!blocked && (
-        <button
-          className="btn btn--primary"
-          type="submit"
-          disabled={submitting}
-        >
+        <button className="btn btn--primary" type="submit" disabled={submitting}>
           {submitting ? "Aktivacija..." : "Aktiviraj pristup"}
         </button>
       )}

@@ -16,6 +16,14 @@ export async function getInviteByToken(token) {
 export async function acceptInvite({ token, nickname, password }) {
   const invite = await getInviteByToken(token);
 
+  if (invite.accepted_at) {
+    throw new Error("Ova pozivnica je već prihvaćena.");
+  }
+
+  if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+    throw new Error("Pozivnica je istekla.");
+  }
+
   const { data: authData, error: signUpError } = await supabase.auth.signUp({
     email: invite.email,
     password,
@@ -26,10 +34,11 @@ export async function acceptInvite({ token, nickname, password }) {
     },
   });
 
-  if (signUpError) throw new Error(signUpError.message);
+  if (signUpError) {
+    throw new Error(signUpError.message);
+  }
 
-  const user = authData.user ?? supabase.auth.getUser?.();
-  if (!user) {
+  if (!authData.user && !authData.session) {
     throw new Error("Nalog nije kreiran.");
   }
 
@@ -40,7 +49,9 @@ export async function acceptInvite({ token, nickname, password }) {
     },
   );
 
-  if (acceptError) throw new Error(acceptError.message);
+  if (acceptError) {
+    throw new Error(acceptError.message);
+  }
 
   return { success: true };
 }
