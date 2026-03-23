@@ -8,6 +8,7 @@ function InviteAcceptForm() {
 
   const [invite, setInvite] = useState(null);
   const [loadingInvite, setLoadingInvite] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     nickname: "",
@@ -15,20 +16,20 @@ function InviteAcceptForm() {
     confirmPassword: "",
   });
 
-  const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
 
   useEffect(() => {
     let mounted = true;
 
     async function loadInvite() {
-      if (!token) {
-        setStatus({ type: "error", message: "Nedostaje invite token." });
-        setLoadingInvite(false);
-        return;
-      }
+      setLoadingInvite(true);
+      setStatus({ type: "", message: "" });
 
       try {
+        if (!token) {
+          throw new Error("Nedostaje invite token.");
+        }
+
         const data = await getInviteByToken(token);
 
         if (!mounted) return;
@@ -52,12 +53,16 @@ function InviteAcceptForm() {
         }
       } catch (error) {
         if (!mounted) return;
+
+        setInvite(null);
         setStatus({
           type: "error",
           message: error.message || "Pozivnica nije pronađena.",
         });
       } finally {
-        if (mounted) setLoadingInvite(false);
+        if (mounted) {
+          setLoadingInvite(false);
+        }
       }
     }
 
@@ -82,8 +87,27 @@ function InviteAcceptForm() {
       return;
     }
 
+    if (invite.accepted_at) {
+      setStatus({
+        type: "error",
+        message: "Ova pozivnica je već prihvaćena.",
+      });
+      return;
+    }
+
+    if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      setStatus({
+        type: "error",
+        message: "Ova pozivnica je istekla.",
+      });
+      return;
+    }
+
     if (!form.nickname.trim()) {
-      setStatus({ type: "error", message: "Unesite ime ili nickname." });
+      setStatus({
+        type: "error",
+        message: "Unesite ime ili nickname.",
+      });
       return;
     }
 
@@ -96,7 +120,10 @@ function InviteAcceptForm() {
     }
 
     if (form.password !== form.confirmPassword) {
-      setStatus({ type: "error", message: "Lozinke se ne poklapaju." });
+      setStatus({
+        type: "error",
+        message: "Lozinke se ne poklapaju.",
+      });
       return;
     }
 
@@ -111,8 +138,18 @@ function InviteAcceptForm() {
 
       setStatus({
         type: "success",
-        message: "Račun je aktiviran. Sada se možete prijaviti u aplikaciju.",
+        message:
+          "Račun je uspješno aktiviran. Sada otvorite aplikaciju i prijavite se svojim emailom i lozinkom.",
       });
+
+      setInvite((prev) =>
+        prev
+          ? {
+              ...prev,
+              accepted_at: new Date().toISOString(),
+            }
+          : prev
+      );
     } catch (error) {
       setStatus({
         type: "error",
@@ -146,9 +183,15 @@ function InviteAcceptForm() {
   return (
     <form className="form card" onSubmit={handleSubmit}>
       <div className="card soft">
-        <div><strong>Servis:</strong> {invite.business_name}</div>
-        <div><strong>Email:</strong> {invite.email}</div>
-        <div><strong>Uloga:</strong> {invite.role}</div>
+        <div>
+          <strong>Servis:</strong> {invite.business_name}
+        </div>
+        <div>
+          <strong>Email:</strong> {invite.email}
+        </div>
+        <div>
+          <strong>Uloga:</strong> {invite.role}
+        </div>
       </div>
 
       <label>
@@ -192,7 +235,11 @@ function InviteAcceptForm() {
       )}
 
       {!blocked && (
-        <button className="btn btn--primary" type="submit" disabled={submitting}>
+        <button
+          className="btn btn--primary"
+          type="submit"
+          disabled={submitting}
+        >
           {submitting ? "Aktivacija..." : "Aktiviraj pristup"}
         </button>
       )}
