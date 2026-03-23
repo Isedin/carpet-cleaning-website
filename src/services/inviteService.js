@@ -1,9 +1,14 @@
 import { supabase } from "../lib/supabaseClient";
 
 export async function getInviteByToken(token) {
+  console.log("TOKEN SA WEBSITE:", token);
+
   const { data, error } = await supabase.rpc("get_business_invite_by_token", {
     p_token: token,
   });
+
+  console.log("RPC DATA:", data);
+  console.log("RPC ERROR:", error);
 
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) {
