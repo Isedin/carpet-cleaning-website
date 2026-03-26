@@ -1,25 +1,12 @@
 import { supabase } from "../lib/supabaseClient";
 
 export async function getInviteByToken(token) {
-  const cleanToken = String(token || "").trim();
-
-  if (!cleanToken) {
-    throw new Error("Nedostaje invite token.");
-  }
-
   const { data, error } = await supabase.rpc("get_business_invite_by_token", {
-    p_token: cleanToken,
+    p_token: token,
   });
 
-  console.log("TOKEN SA WEBSITE:", cleanToken);
-  console.log("RPC DATA:", data);
-  console.log("RPC ERROR:", error);
-
-  if (error) {
-    throw new Error(error.message || "Greška pri dohvaćanju pozivnice.");
-  }
-
-  if (!data || !Array.isArray(data) || data.length === 0) {
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
     throw new Error("Pozivnica nije pronađena.");
   }
 
@@ -37,31 +24,38 @@ export async function acceptInvite({ token, nickname, password }) {
     throw new Error("Pozivnica je istekla.");
   }
 
-  const { data, error } = await supabase.functions.invoke(
-    "accept-business-invite",
-    {
-      body: {
-        token: String(token || "").trim(),
-        fullName: String(nickname || "").trim(),
-        password: String(password || ""),
+  const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    email: invite.email,
+    password,
+    options: {
+      data: {
+        full_name: nickname,
       },
+      emailRedirectTo: window.location.origin,
+    },
+  });
+
+  if (signUpError) {
+    throw new Error(signUpError.message);
+  }
+
+  const userId = authData.user?.id;
+  if (!userId) {
+    throw new Error("Nalog nije kreiran.");
+  }
+
+  const { error: acceptError } = await supabase.rpc(
+    "accept_business_invite_by_token_admin",
+    {
+      p_token: token,
+      p_user_id: userId,
+      p_full_name: nickname,
     },
   );
 
-  console.log("ACCEPT INVITE FUNCTION DATA:", data);
-  console.log("ACCEPT INVITE FUNCTION ERROR:", error);
-
-  if (error) {
-    throw new Error(error.message || "Greška pri aktivaciji računa.");
+  if (acceptError) {
+    throw new Error(acceptError.message);
   }
 
-  if (data?.error) {
-    throw new Error(data.error);
-  }
-
-  if (!data?.success) {
-    throw new Error("Aktivacija računa nije uspjela.");
-  }
-
-  return data;
+  return { success: true };
 }
