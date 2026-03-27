@@ -31,7 +31,6 @@ export async function acceptInvite({ token, nickname, password }) {
       data: {
         full_name: nickname,
       },
-      emailRedirectTo: window.location.origin,
     },
   });
 
@@ -39,17 +38,25 @@ export async function acceptInvite({ token, nickname, password }) {
     throw new Error(signUpError.message);
   }
 
-  const userId = authData.user?.id;
-  if (!userId) {
+  if (!authData.user && !authData.session) {
     throw new Error("Nalog nije kreiran.");
   }
 
+  if (!authData.session) {
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: invite.email,
+      password,
+    });
+
+    if (loginError) {
+      throw new Error(loginError.message);
+    }
+  }
+
   const { error: acceptError } = await supabase.rpc(
-    "accept_business_invite_by_token_admin",
+    "accept_business_invite_by_token",
     {
       p_token: token,
-      p_user_id: userId,
-      p_full_name: nickname,
     },
   );
 
@@ -57,5 +64,5 @@ export async function acceptInvite({ token, nickname, password }) {
     throw new Error(acceptError.message);
   }
 
-  return { success: true };
+  return { success: true, role: invite.role };
 }

@@ -111,6 +111,14 @@ function InviteAcceptForm() {
 
       setStatus({
         type: "success",
+        message:
+          invite.role === "owner"
+            ? "Owner račun je aktiviran. Sada se možete prijaviti u aplikaciju."
+            : "Račun je aktiviran. Sada se možete prijaviti u aplikaciju.",
+      });
+
+      setStatus({
+        type: "success",
         message: "Račun je aktiviran. Sada se možete prijaviti u aplikaciju.",
       });
     } catch (error) {
