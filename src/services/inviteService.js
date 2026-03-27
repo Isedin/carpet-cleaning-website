@@ -24,7 +24,8 @@ export async function acceptInvite({ token, nickname, password }) {
     throw new Error("Pozivnica je istekla.");
   }
 
-  const { data: authData, error: signUpError } = await supabase.auth.signUp({
+  // 1. signup
+  const { error: signUpError } = await supabase.auth.signUp({
     email: invite.email,
     password,
     options: {
@@ -38,21 +39,22 @@ export async function acceptInvite({ token, nickname, password }) {
     throw new Error(signUpError.message);
   }
 
-  if (!authData.user && !authData.session) {
-    throw new Error("Nalog nije kreiran.");
-  }
-
-  if (!authData.session) {
-    const { error: loginError } = await supabase.auth.signInWithPassword({
+  // 2. OBAVEZNO login (ovo rješava tvoj FK problem)
+  const { data: loginData, error: loginError } =
+    await supabase.auth.signInWithPassword({
       email: invite.email,
       password,
     });
 
-    if (loginError) {
-      throw new Error(loginError.message);
-    }
+  if (loginError) {
+    throw new Error(loginError.message);
   }
 
+  if (!loginData?.user) {
+    throw new Error("Login nije uspio.");
+  }
+
+  // 3. accept invite
   const { error: acceptError } = await supabase.rpc(
     "accept_business_invite_by_token",
     {
