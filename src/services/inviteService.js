@@ -66,5 +66,5 @@ export async function acceptInvite({ token, nickname, password }) {
     throw new Error(acceptError.message);
   }
 
-  return { success: true, role: invite.role };
+  return { success: true, role: invite.role, jobType: invite.job_type };
 }
